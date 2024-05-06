@@ -1,5 +1,6 @@
 import streamlit as st
 from PIL import Image
+<<<<<<< HEAD
 
 def upload_image_page():
     st.title('Upload Image')
@@ -31,3 +32,21 @@ def main():
 
 if __name__ == "__main__":
     main()
+=======
+import pytesseract
+
+def ocr_core(image):
+    text = pytesseract.image_to_string(image)
+    return text
+
+st.title('OCR Streamlit App')
+
+uploaded_file = st.file_uploader("Choose an image...", type=["jpg", "png"])
+if uploaded_file is not None:
+    image = Image.open(uploaded_file)
+    st.image(image, caption='Uploaded Image.', use_column_width=True)
+    st.write("")
+    st.write("Processing...")
+    extracted_text = ocr_core(image)
+    st.write(extracted_text)
+>>>>>>> ceef39bf39cd3488eb3e06aa86425a7c1a5d0f2d

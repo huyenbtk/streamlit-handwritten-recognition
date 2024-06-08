@@ -11,27 +11,22 @@ import torch.optim as optim
 
 def preprocess_image(image):
     # Convert image to grayscale if it's not already
-    if len(image.shape) == 3:
-        image = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
-        
-    # Resize and pad the image to 256x64
-    (h, w) = image.shape
+    img = np.array(image)
+    (h, w) = img.shape
     final_img = np.ones([64, 256]) * 255  # blank white image
-    
-    # Crop or pad the image
+    # crop
     if w > 256:
-        image = image[:, :256]
+        img = img[:, :256]
     if h > 64:
-        image = image[:64, :]
-    
-    final_img[:h, :w] = image
+        img = img[:64, :]
+    final_img[:h, :w] = img
     final_img = cv2.rotate(final_img, cv2.ROTATE_90_CLOCKWISE)
     
     # Convert to PyTorch tensor and normalize to [0, 1]
     final_img = torch.tensor(final_img, dtype=torch.float32) / 255.0
-    final_img = final_img.unsqueeze(0).unsqueeze(0)  # Add batch and channel dimensions
-    
+    final_img = final_img.unsqueeze(0).unsqueeze(0)  # Add channel dimension
     return final_img
+
 class CNNtoRNN(nn.Module):
     def __init__(self, num_of_characters):
         super(CNNtoRNN, self).__init__()
@@ -138,7 +133,6 @@ def greedy_decoder(output, labels):
 labels = ['<BLANK>', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', '-', "'", '`', ' ']
 
 def extract_text(image):
-    image = preprocess_image(image)
     with torch.no_grad():
         outputs = model(image)
         outputs = outputs.permute(1, 0, 2)  # Shape should be (seq_len, batch, num_of_characters)
@@ -158,7 +152,7 @@ uploaded_file = st.file_uploader("Choose an image...", type=["jpg", "jpeg", "png
 if uploaded_file is not None:
     image = Image.open(uploaded_file)
     st.image(image, caption='Uploaded Image.', use_column_width=True)
-    image = np.array(image.convert('L'))
+    image= preprocess_image(image.convert('L'))
     extracted_text = extract_text(image)
 
     

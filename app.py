@@ -106,7 +106,7 @@ input_tensor = torch.randn(1, 1, 256, 64)  # (batch_size, channels, height, widt
 # Forward pass to print the shape of each layer's output
 output = model(input_tensor, check_shape= True)
 
-model= torch.load("./models/model.pth", map_location=torch.device('cpu'))
+model= torch.load("./models/model_140.pth", map_location=torch.device('cpu'))
 
 criterion = nn.CTCLoss(blank=0,zero_infinity=True)  # 0 is the index for the CTC blank label
 optimizer = optim.Adam(model.parameters(), lr=0.0001)

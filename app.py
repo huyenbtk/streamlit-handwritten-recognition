@@ -8,7 +8,7 @@ import keras.backend as K
 from keras.models import Model
 import cv2
 from keras.layers import Input, Conv2D, MaxPooling2D, Reshape, Bidirectional, LSTM, Dense, Lambda, Activation, BatchNormalization, Dropout
-
+import matplotlib.pyplot as plt
 
 alphabets = u"ABCDEFGHIJKLMNOPQRSTUVWXYZ-' "
 num_of_characters = len(alphabets) + 1 # +1 for ctc pseudo blank
@@ -21,19 +21,34 @@ def local_css(file_name):
 local_css("style.css")
 
 def preprocess(img):
-    (h, w) = img.shape
+    # Convert the image to only black and white
+    # img = cv2.threshold(img, 127, 255, cv2.THRESH_BINARY)[1]
+    img = cv2.threshold(img, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)[1]
+
+    # Get original dimensions
+    orig_height, orig_width = img.shape
+
+    # Calculate scaling factor a
+    scale_width = orig_width / 256
+    scale_height = orig_height / 64
+    a = max(scale_width, scale_height)
+
+    # Determine new dimensions based on the largest possible a
+    new_width = int(orig_width / a)
+    new_height = int(orig_height / a)
+
+    # Resize the image using a high-quality interpolation method
+    img = cv2.resize(img, (new_width, new_height), interpolation=cv2.INTER_CUBIC)
+
+    # Create a blank white image of the target size
+    final_img = np.ones([64, 256], dtype=np.uint8) * 255
+
+    # Place the resized image into the blank white image
+    final_img[:new_height, :new_width] = img
     
-    final_img = np.ones([64, 256])*255 # blank white image
-    
-    # crop
-    if w > 256:
-        img = img[:, :256]
-        
-    if h > 64:
-        img = img[:64, :]
-    
-    
-    final_img[:h, :w] = img
+    plt.imshow(final_img, cmap='gray')
+    plt.axis('off')
+    st.pyplot(plt)
     return cv2.rotate(final_img, cv2.ROTATE_90_CLOCKWISE)
 
 # the ctc loss function
@@ -121,7 +136,7 @@ uploaded_file = st.file_uploader("Choose an image...", type=["jpg", "jpeg", "png
 if uploaded_file is not None:
     image = Image.open(uploaded_file)
     st.image(image, caption='Uploaded Image.', use_column_width=True)
-    gray_image = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2GRAY)
+    gray_image = np.array(image.convert('L'))
 
     extracted_text = extract_text(gray_image)
 

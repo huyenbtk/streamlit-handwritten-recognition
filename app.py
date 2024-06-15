@@ -8,23 +8,48 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
+import matplotlib.pyplot as plt
 
 def preprocess_image(image):
     # Convert image to grayscale if it's not already
     img = np.array(image)
-    (h, w) = img.shape
-    final_img = np.ones([64, 256]) * 255  # blank white image
-    # crop
-    if w > 256:
-        img = img[:, :256]
-    if h > 64:
-        img = img[:64, :]
-    final_img[:h, :w] = img
+    #convert image to only black and white
+    img = cv2.threshold(img, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)[1]
+    #focus the area of dark pixels and cut the rest
+    coords = cv2.findNonZero(img)  # Find all non-zero points (text)
+    x, y, w, h = cv2.boundingRect(coords)  # Find minimum spanning bounding box
+    img = img[y:y + h, x:x + w]  # Crop the image - note we do this on the original image
+    # Resize the image to 256x64
+    img = cv2.resize(img, (256, 64))
+    # Make sure the image is in the right shape
+    # Get original dimensions
+    orig_height, orig_width = img.shape[:2]
+
+    # Calculate scaling factor a
+    scale_width = orig_width / 256
+    scale_height = orig_height / 64
+    a = max(scale_width, scale_height)
+
+    # Determine new dimensions based on the largest possible a
+    new_width = int(orig_width / a)
+    new_height = int(orig_height / a)
+
+    # Resize the image using a high-quality interpolation method
+    img = cv2.resize(img, (new_width, new_height), interpolation=cv2.INTER_CUBIC)
+
+    # Create a blank white image of the target size
+    final_img = np.ones([64, 256], dtype=np.uint8) * 255
+
+    # Place the resized image into the blank white image
+    final_img[:new_height, :new_width] = img
+
+    # Rotate the image if needed
     final_img = cv2.rotate(final_img, cv2.ROTATE_90_CLOCKWISE)
-    
+
     # Convert to PyTorch tensor and normalize to [0, 1]
     final_img = torch.tensor(final_img, dtype=torch.float32) / 255.0
     final_img = final_img.unsqueeze(0).unsqueeze(0)  # Add channel dimension
+
     return final_img
 
 class CNNtoRNN(nn.Module):
@@ -131,14 +156,25 @@ def greedy_decoder(output, labels):
     return decodes
 
 labels = ['<BLANK>', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', '-', "'", '`', ' ']
-
+model.to(device)
+model.eval()
+def plot_results(image, prediction):
+    plt.figure(figsize=(20, 10))
+    plt.subplot(5, 5, 1)  # Adjust subplot size according to number of results
+    image = cv2.rotate(image, cv2.ROTATE_90_COUNTERCLOCKWISE)
+    plt.imshow(image, cmap='gray')
+    plt.title(prediction)
+    plt.axis('off')
+    st.pyplot(plt)
+    
 def extract_text(image):
+    image=image.to(device)
     with torch.no_grad():
         outputs = model(image)
         outputs = outputs.permute(1, 0, 2)  # Shape should be (seq_len, batch, num_of_characters)
         outputs = F.log_softmax(outputs, dim=2)
         decoded_output = greedy_decoder(outputs, labels)
-        
+        plot_results(image.cpu().squeeze().numpy(), ''.join(decoded_output[0]))
     return decoded_output[0]
 
 
